@@ -4,12 +4,13 @@
     Helped by using:
     http://www.materialpalette.com/blue-grey/light-blue
     -->
-    <color name="primary">#009688</color>
-    <color name="primary_dark">#00796B</color>
-    <color name="primary_light">#B2DFDB</color>
-    <color name="accent">#FF9800</color>
+    <color name="primary">#93057c</color>
+    <color name="primary_dark">#61004f</color>
+    <color name="primary_light">#c748ac</color>
+    <color name="accent">#299cd9</color>
+    <color name="accent_dark">#006ea7</color>
     <color name="primary_text">#FFFFFF</color>
-    <color name="secondary_text">#727272</color>
+    <color name="secondary_text">#000000</color>
     <color name="secondary_text_light">#41727272</color>
 
     <color name="text_primary">#212121</color>
