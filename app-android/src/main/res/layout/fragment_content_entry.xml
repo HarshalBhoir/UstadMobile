@@ -151,7 +151,7 @@
                 android:paddingTop="@dimen/dimen_16dp"
                 android:paddingBottom="@dimen/dimen_16dp"
                 app:backgroundTint="@color/accent"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/icons"
                 android:text="@string/content_entry_label_update_file"
                 android:id="@+id/update_file"
                 android:layout_width="match_parent"
