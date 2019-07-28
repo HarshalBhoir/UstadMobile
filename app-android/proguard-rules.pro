@@ -18,3 +18,5 @@
 -keep public class com.ustadmobile.port.android.umeditor.**{
        *;
 }
+
+-keep public class com.ustadmobile.port.android.view.ContentEditorActivity

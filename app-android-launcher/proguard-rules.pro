@@ -51,6 +51,10 @@
        *;
 }
 
+-keep public class com.ustadmobile.port.android.view.ContentEditorActivity{
+       *;
+}
+
  #
  ###################################################################################################
  #### OKHttp3 rules as per
