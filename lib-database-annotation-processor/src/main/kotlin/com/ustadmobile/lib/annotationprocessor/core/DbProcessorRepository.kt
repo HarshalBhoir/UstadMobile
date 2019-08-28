@@ -21,6 +21,7 @@ import com.ustadmobile.door.annotation.Repository
 import kotlinx.coroutines.GlobalScope
 import kotlin.reflect.KClass
 
+
 internal fun newRepositoryClassBuilder(daoType: ClassName, addSyncHelperParam: Boolean = false): TypeSpec.Builder {
     val repoClassSpec = TypeSpec.classBuilder("${daoType.simpleName}_${DbProcessorRepository.SUFFIX_REPOSITORY}")
             .addProperty(PropertySpec.builder("_dao",
@@ -50,7 +51,6 @@ internal fun newRepositoryClassBuilder(daoType: ClassName, addSyncHelperParam: B
         repoClassSpec.addProperty(PropertySpec.builder("_syncHelper", syncHelperClassName)
                 .initializer("_syncHelper").build())
     }
-
     repoClassSpec.primaryConstructor(primaryConstructorFn.build())
 
     return repoClassSpec
@@ -64,7 +64,8 @@ class DbProcessorRepository: AbstractDbProcessor() {
 
         for(dbTypeEl in dbs) {
             writeFileSpecToOutputDirs(generateDbRepositoryClass(dbTypeEl as TypeElement,
-                    syncDaoMode = REPO_SYNCABLE_DAO_CONSTRUCT), AnnotationProcessorWrapper.OPTION_JVM_DIRS)
+                    syncDaoMode = REPO_SYNCABLE_DAO_CONSTRUCT, addDbVersionProp = true),
+                    AnnotationProcessorWrapper.OPTION_JVM_DIRS)
             writeFileSpecToOutputDirs(generateDbRepositoryClass(dbTypeEl as TypeElement,
                     syncDaoMode = REPO_SYNCABLE_DAO_FROMDB, overrideClearAllTables = false,
                     overrideSyncDao = true, overrideOpenHelper = true),
@@ -88,7 +89,8 @@ class DbProcessorRepository: AbstractDbProcessor() {
                                   syncDaoMode: Int = REPO_SYNCABLE_DAO_CONSTRUCT,
                                   overrideClearAllTables: Boolean = true,
                                   overrideSyncDao: Boolean = false,
-                                  overrideOpenHelper: Boolean = false): FileSpec {
+                                  overrideOpenHelper: Boolean = false,
+                                  addDbVersionProp: Boolean = false): FileSpec {
         val dbRepoFileSpec = FileSpec.builder(pkgNameOfElement(dbTypeElement, processingEnv),
                 "${dbTypeElement.simpleName}_$SUFFIX_REPOSITORY")
 
@@ -141,6 +143,7 @@ class DbProcessorRepository: AbstractDbProcessor() {
         }
 
         if(overrideOpenHelper) {
+            val invalidationTrackerClassName = ClassName("androidx.room", "InvalidationTracker")
             dbRepoType.addFunction(FunSpec.builder("createOpenHelper")
                     .addParameter("config", ClassName("androidx.room", "DatabaseConfiguration"))
                     .returns(ClassName("androidx.sqlite.db", "SupportSQLiteOpenHelper"))
@@ -148,9 +151,19 @@ class DbProcessorRepository: AbstractDbProcessor() {
                     .addCode("throw IllegalAccessException(%S)\n", "Cannot use open helper on repository")
                     .build())
             dbRepoType.addFunction(FunSpec.builder("createInvalidationTracker")
-                    .returns(ClassName("androidx.room", "InvalidationTracker"))
+                    .returns(invalidationTrackerClassName)
                     .addModifiers(KModifier.OVERRIDE, KModifier.PROTECTED)
-                    .addCode("throw IllegalAccessException(%S)\n", "Cannot use invalidationtracker on repository")
+                    .addCode("return %T.createDummyInvalidationTracker(this)\n",
+                            ClassName("com.ustadmobile.door","DummyInvalidationTracker"))
+                    .build())
+        }
+
+        if(addDbVersionProp) {
+            dbRepoType.addProperty(PropertySpec.builder("dbVersion", INT)
+                    .addModifiers(KModifier.OVERRIDE)
+                    .getter(FunSpec.getterBuilder()
+                            .addCode("return _db.dbVersion")
+                            .build())
                     .build())
         }
 
