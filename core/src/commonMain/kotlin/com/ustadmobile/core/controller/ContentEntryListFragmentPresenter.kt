@@ -1,5 +1,6 @@
 package com.ustadmobile.core.controller
 
+import com.github.aakira.napier.Napier
 import com.ustadmobile.core.db.dao.ContentEntryDao
 import com.ustadmobile.core.impl.AppConfig
 import com.ustadmobile.core.impl.UstadMobileSystemCommon
@@ -12,15 +13,18 @@ import com.ustadmobile.door.DoorLiveData
 import com.ustadmobile.lib.db.entities.ContentEntry
 import com.ustadmobile.lib.db.entities.DistinctCategorySchema
 import com.ustadmobile.lib.db.entities.Language
+import com.ustadmobile.lib.db.entities.UmAccount
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
 import kotlin.js.JsName
 
-class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, String>?,
+class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, String?>,
                                         private val fragmentViewContract: ContentEntryListFragmentView,
-                                        private val contentEntryDao: ContentEntryDao)
-    : UstadBaseController<ContentEntryListFragmentView>(context, arguments!!, fragmentViewContract) {
+                                        private val contentEntryDao: ContentEntryDao,
+                                        private val contentEntryDaoRepo: ContentEntryDao,
+                                        private val activeAccount: UmAccount?)
+    : UstadBaseController<ContentEntryListFragmentView>(context, arguments, fragmentViewContract) {
 
     private var filterByLang: Long = 0
 
@@ -30,14 +34,12 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
 
     private var noIframe: Boolean = false
 
-
     override fun onCreate(savedState: Map<String, String?>?) {
         super.onCreate(savedState)
-
-        if (arguments.containsKey(ARG_CONTENT_ENTRY_UID)) {
-            showContentByParent()
-        } else if (arguments.containsKey(ARG_DOWNLOADED_CONTENT)) {
-            showDownloadedContent()
+        when {
+            arguments.containsKey(ARG_LIBRARIES_CONTENT) -> showContentByParent()
+            arguments.containsKey(ARG_DOWNLOADED_CONTENT) -> showDownloadedContent()
+            arguments.containsKey(ARG_RECYCLED_CONTENT) -> showRecycledEntries()
         }
 
     }
@@ -58,20 +60,21 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
             fragmentViewContract.setToolbarTitle(resultTitle)
     }
 
+
     private fun showContentByParent() {
         parentUid = arguments.getValue(ARG_CONTENT_ENTRY_UID)!!.toLong()
-        val provider = contentEntryDao.getChildrenByParentUidWithCategoryFilter(parentUid!!, 0, 0)
+        val provider = contentEntryDaoRepo.getChildrenByParentUidWithCategoryFilter(parentUid!!, 0, 0, activeAccount?.personUid ?: 0)
         fragmentViewContract.setContentEntryProvider(provider)
 
         try {
-            val entryLiveData: DoorLiveData<ContentEntry?> = contentEntryDao.findLiveContentEntry(parentUid!!)
+            val entryLiveData: DoorLiveData<ContentEntry?> = contentEntryDaoRepo.findLiveContentEntry(parentUid!!)
             entryLiveData.observe(this, this::onContentEntryChanged)
         } catch (e: Exception) {
             fragmentViewContract.runOnUiThread(Runnable { fragmentViewContract.showError() })
         }
 
         GlobalScope.launch {
-            val result = contentEntryDao.findUniqueLanguagesInListAsync(parentUid!!).toMutableList()
+            val result = contentEntryDaoRepo.findUniqueLanguagesInListAsync(parentUid!!).toMutableList()
             if (result.size > 1) {
                 val selectLang = Language()
                 selectLang.name = "Language"
@@ -88,7 +91,7 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
         }
 
         GlobalScope.launch {
-            val result = contentEntryDao.findListOfCategoriesAsync(parentUid!!)
+            val result = contentEntryDaoRepo.findListOfCategoriesAsync(parentUid!!)
             val schemaMap = HashMap<Long, List<DistinctCategorySchema>>()
             for (schema in result) {
                 var data: MutableList<DistinctCategorySchema>? =
@@ -119,6 +122,10 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
         fragmentViewContract.setContentEntryProvider(contentEntryDao.downloadedRootItems())
     }
 
+    private fun showRecycledEntries() {
+        fragmentViewContract.setContentEntryProvider(contentEntryDaoRepo.recycledItems())
+    }
+
 
     @JsName("handleContentEntryClicked")
     fun handleContentEntryClicked(entry: ContentEntry) {
@@ -136,13 +143,13 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
     @JsName("handleClickFilterByLanguage")
     fun handleClickFilterByLanguage(langUid: Long) {
         this.filterByLang = langUid
-        fragmentViewContract.setContentEntryProvider(contentEntryDao.getChildrenByParentUidWithCategoryFilter(parentUid!!, filterByLang, filterByCategory))
+        fragmentViewContract.setContentEntryProvider(contentEntryDao.getChildrenByParentUidWithCategoryFilter(parentUid!!, filterByLang, filterByCategory, activeAccount?.personUid ?: 0))
     }
 
     @JsName("handleClickFilterByCategory")
     fun handleClickFilterByCategory(contentCategoryUid: Long) {
         this.filterByCategory = contentCategoryUid
-        fragmentViewContract.setContentEntryProvider(contentEntryDao.getChildrenByParentUidWithCategoryFilter(parentUid!!, filterByLang, filterByCategory))
+        fragmentViewContract.setContentEntryProvider(contentEntryDao.getChildrenByParentUidWithCategoryFilter(parentUid!!, filterByLang, filterByCategory, activeAccount?.personUid ?: 0))
     }
 
     @JsName("handleUpNavigation")
@@ -155,10 +162,8 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
 
     @JsName("handleDownloadStatusButtonClicked")
     fun handleDownloadStatusButtonClicked(entry: ContentEntry) {
-        val impl = UstadMobileSystemImpl.instance
-        val args = HashMap<String, String>()
-        args["contentEntryUid"] = entry.contentEntryUid.toString()
-        impl.go("DownloadDialog", args, context)
+        UstadMobileSystemImpl.instance.go("DownloadDialog",
+                mapOf("contentEntryUid" to entry.contentEntryUid.toString()), context)
     }
 
     companion object {
@@ -169,5 +174,9 @@ class ContentEntryListFragmentPresenter(context: Any, arguments: Map<String, Str
         const val ARG_NO_IFRAMES = "noiframe"
 
         const val ARG_DOWNLOADED_CONTENT = "downloaded"
+
+        const val ARG_RECYCLED_CONTENT = "recycled"
+
+        const val ARG_LIBRARIES_CONTENT = "libraries"
     }
 }
