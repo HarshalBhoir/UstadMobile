@@ -97,6 +97,12 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
                 view.showBaseProgressBar(false)
             })
         }
+
+//        statusUmLiveData = appRepo.contentEntryStatusDao.findContentEntryStatusByUid(entryUuid)
+//
+//        statusUmLiveData!!.observe(this, this::onEntryStatusChanged)
+
+        //statusProvider?.addDownloadChangeListener(this)
     }
 
     private fun onEntryChanged(entry: ContentEntry?) {
@@ -169,7 +175,7 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
             }
         } else if (isDownloadEnabled) {
             view.runOnUiThread(Runnable {
-                view.showDownloadOptionsDialog(mapOf(ARG_CONTENT_ENTRY_UID to entryUuid.toString()))
+                view.showDownloadOptionsDialog(mapOf(ARG_CONTENT_ENTRY_UID to this.entryUuid.toString()))
             })
         }
     }

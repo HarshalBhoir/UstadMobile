@@ -51,8 +51,6 @@ class ContentEntryDetailPresenterTest {
 
     private lateinit var goToEntryFnCountDownLatch: CountDownLatch
 
-    private lateinit var downloadJobItem: DownloadJobItem
-
 
     val counter: GoToEntryFn = { contentEntryUid: Long,
                                  umAppDatabase: UmAppDatabase,
@@ -112,13 +110,13 @@ class ContentEntryDetailPresenterTest {
         container.fileSize = 10
         container.containerUid = umAppDatabase.containerDao.insert(container)
 
-        downloadJobItem = DownloadJobItem()
-        downloadJobItem.djiContainerUid = container.containerUid
-        downloadJobItem.djiContentEntryUid = contentEntry.contentEntryUid
-        downloadJobItem.djiStatus = JobStatus.COMPLETE
-        umAppDatabase.downloadJobItemDao.insert(downloadJobItem)
+        var dj = DownloadJobItem()
+        dj.djiContainerUid = container.containerUid
+        dj.djiContentEntryUid = contentEntry.contentEntryUid
+        dj.djiStatus = JobStatus.COMPLETE
+        umAppDatabase.downloadJobItemDao.insert(dj)
 
-        downloadJobItemLiveData = DoorMutableLiveData(downloadJobItem as DownloadJobItem?)
+        downloadJobItemLiveData = DoorMutableLiveData(dj as DownloadJobItem?)
 
         runBlocking {
             whenever(containerDownloadManager.getDownloadJobItemByContentEntryUid(contentEntry.contentEntryUid)).thenReturn(downloadJobItemLiveData)
@@ -167,7 +165,8 @@ class ContentEntryDetailPresenterTest {
             presenter.handleDownloadButtonClick()
             argumentCaptor<Map<String, String>>() {
                 verify(mockView, timeout(5000)).showDownloadOptionsDialog(capture())
-                Assert.assertEquals(contentEntry.contentEntryUid.toString(), firstValue[ARG_CONTENT_ENTRY_UID])
+                Assert.assertEquals("Content entry uid passed to download dialog is correct",
+                        contentEntry.contentEntryUid.toString(), firstValue[ARG_CONTENT_ENTRY_UID])
             }
 
         }
