@@ -51,6 +51,8 @@ class ContentEntryDetailPresenterTest {
 
     private lateinit var goToEntryFnCountDownLatch: CountDownLatch
 
+    private lateinit var downloadJobItem: DownloadJobItem
+
 
     val counter: GoToEntryFn = { contentEntryUid: Long,
                                  umAppDatabase: UmAppDatabase,
@@ -110,13 +112,13 @@ class ContentEntryDetailPresenterTest {
         container.fileSize = 10
         container.containerUid = umAppDatabase.containerDao.insert(container)
 
-        var dj = DownloadJobItem()
-        dj.djiContainerUid = container.containerUid
-        dj.djiContentEntryUid = contentEntry.contentEntryUid
-        dj.djiStatus = JobStatus.COMPLETE
-        umAppDatabase.downloadJobItemDao.insert(dj)
+        downloadJobItem = DownloadJobItem()
+        downloadJobItem.djiContainerUid = container.containerUid
+        downloadJobItem.djiContentEntryUid = contentEntry.contentEntryUid
+        downloadJobItem.djiStatus = JobStatus.COMPLETE
+        umAppDatabase.downloadJobItemDao.insert(downloadJobItem)
 
-        downloadJobItemLiveData = DoorMutableLiveData(dj as DownloadJobItem?)
+        downloadJobItemLiveData = DoorMutableLiveData(downloadJobItem as DownloadJobItem?)
 
         runBlocking {
             whenever(containerDownloadManager.getDownloadJobItemByContentEntryUid(contentEntry.contentEntryUid)).thenReturn(downloadJobItemLiveData)
@@ -156,7 +158,8 @@ class ContentEntryDetailPresenterTest {
     fun givenContentEntryNotDownloaded_whenMainButtonClicked_thenShouldShowDownloadDialog() {
 
         runBlocking {
-            var presenter = ContentEntryDetailPresenter(context, args, mockView,
+            downloadJobItemLiveData.sendValue(null)
+            val presenter = ContentEntryDetailPresenter(context, args, mockView,
                     true, umAppRepository, umAppDatabase,
                     mock(), containerDownloadManager, null, systemImpl, counter)
             presenter.onCreate(null)
@@ -164,7 +167,7 @@ class ContentEntryDetailPresenterTest {
             presenter.handleDownloadButtonClick()
             argumentCaptor<Map<String, String>>() {
                 verify(mockView, timeout(5000)).showDownloadOptionsDialog(capture())
-                Assert.assertEquals(firstValue["contentEntryUid"], contentEntry.contentEntryUid.toString())
+                Assert.assertEquals(contentEntry.contentEntryUid.toString(), firstValue[ARG_CONTENT_ENTRY_UID])
             }
 
         }
