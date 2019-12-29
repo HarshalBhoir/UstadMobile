@@ -53,6 +53,10 @@ abstract class ContentEntryDao : BaseDao<ContentEntry> {
     @JsName("findByEntryId")
     abstract suspend fun findByEntryId(entryUuid: Long): ContentEntry?
 
+    @Query("SELECT * FROM ContentEntry WHERE title =:title")
+    @JsName("findByEntryTitle")
+    abstract suspend fun findByEntryTitle(title: String): ContentEntry?
+
     @Query("SELECT * FROM ContentEntry WHERE sourceUrl = :sourceUrl LIMIT 1")
     @JsName("findBySourceUrl")
     abstract fun findBySourceUrl(sourceUrl: String): ContentEntry?
@@ -145,6 +149,13 @@ abstract class ContentEntryDao : BaseDao<ContentEntry> {
     abstract fun getChildrenByParentUidWithCategoryFilter(parentUid: Long, langParam: Long, categoryParam0: Long, personUid: Long): DataSource.Factory<Int, ContentEntryWithParentChildJoinAndStatusAndMostRecentContainer>
 
 
+    @Query("SELECT ContentEntry.* FROM ContentEntry "+
+            "LEFT JOIN ContentEntryParentChildJoin ON ContentEntryParentChildJoin.cepcjChildContentEntryUid = ContentEntry.contentEntryUid" +
+            " WHERE ContentEntryParentChildJoin.cepcjParentContentEntryUid = :parentUid")
+    @JsName("getChildrenByAll")
+    abstract fun getChildrenByAll(parentUid: Long): List<ContentEntry>
+
+
     @JsName("findLiveContentEntry")
     @Query("SELECT * FROM ContentEntry where contentEntryUid = :parentUid LIMIT 1")
     abstract fun findLiveContentEntry(parentUid: Long): DoorLiveData<ContentEntry?>
@@ -200,5 +211,8 @@ abstract class ContentEntryDao : BaseDao<ContentEntry> {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract fun replaceList(entries: List<ContentEntry>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract fun insertWithReplace(entry: ContentEntry)
 
 }

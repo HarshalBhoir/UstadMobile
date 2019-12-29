@@ -10,6 +10,9 @@ import com.ustadmobile.core.impl.UmResultCallback
 import com.ustadmobile.core.impl.UstadMobileSystemImpl
 import com.ustadmobile.core.networkmanager.downloadmanager.ContainerDownloadManager
 import com.ustadmobile.core.util.UMFileUtil
+import com.ustadmobile.core.util.ext.isStatusCompletedSuccessfully
+import com.ustadmobile.core.util.ext.isStatusPausedOrQueuedOrDownloading
+import com.ustadmobile.core.view.UstadView
 import com.ustadmobile.door.DoorLifecycleOwner
 import com.ustadmobile.door.DoorLiveData
 import com.ustadmobile.door.DoorObserver
@@ -85,7 +88,7 @@ class DownloadDialogPresenter(context: Any,
         super.onCreate(savedState)
 
         impl = UstadMobileSystemImpl.instance
-        contentEntryUid = arguments[ARG_CONTENT_ENTRY_UID]?.toLong() ?: 0L
+        contentEntryUid = arguments[UstadView.ARG_CONTENT_ENTRY_UID]?.toLong() ?: 0L
         UMLog.l(UMLog.INFO, 420, "Starting download presenter for " +
                 "content entry uid: " + contentEntryUid)
         view.setWifiOnlyOptionVisible(false)
@@ -110,9 +113,8 @@ class DownloadDialogPresenter(context: Any,
     }
 
     override fun onChanged(t: DownloadJob?) {
-        val downloadStatus = t?.djStatus ?: -1
         when {
-            downloadStatus >= JobStatus.COMPLETE_MIN && downloadStatus < JobStatus.CANCELED -> {
+            t.isStatusCompletedSuccessfully() -> {
                 deleteFileOptions = true
                 view.setStackOptionsVisible(false)
                 view.setBottomButtonsVisible(true)
@@ -125,7 +127,7 @@ class DownloadDialogPresenter(context: Any,
                 view.setWifiOnlyOptionVisible(false)
             }
 
-            downloadStatus >= JobStatus.RUNNING_MIN && downloadStatus < JobStatus.COMPLETE_MIN -> {
+            t.isStatusPausedOrQueuedOrDownloading() -> {
                 deleteFileOptions = false
                 view.setStackOptionsVisible(true)
                 view.setBottomButtonsVisible(false)
@@ -152,7 +154,8 @@ class DownloadDialogPresenter(context: Any,
         }
 
         val currentJobSizeTotals = jobSizeTotals.value
-        if(currentJobSizeTotals == null && !jobSizeLoading.compareAndSet(true, true)) {
+        if(!t.isStatusPausedOrQueuedOrDownloading() && !t.isStatusCompletedSuccessfully()
+                && currentJobSizeTotals == null && !jobSizeLoading.compareAndSet(true, true)) {
             GlobalScope.launch {
                 try {
                     val sizeTotals = if(t != null) {
@@ -204,7 +207,7 @@ class DownloadDialogPresenter(context: Any,
         val currentDownloadJobItemVal = currentDownloadJobItem
         if(currentDownloadJobItemVal != null && currentDownloadJobItemVal.djiStatus >= JobStatus.COMPLETE_MIN) {
             //There is a completed download and the user wants to delete it
-            requestDelete(contentEntryUid, context)
+            requestDelete(currentDownloadJobItemVal.djiDjUid, containerDownloadManager, context)
         }else if(currentDownloadJobItemVal == null) {
             //there is no existing download job item - create it
             GlobalScope.launch {
@@ -275,18 +278,18 @@ class DownloadDialogPresenter(context: Any,
 
     companion object {
 
-        const val ARG_CONTENT_ENTRY_UID = "contentEntryUid"
-
         const val STACKED_BUTTON_PAUSE = 0
 
         const val STACKED_BUTTON_CANCEL = 1
 
         const val STACKED_BUTTON_CONTINUE = 2
 
-        internal val STACKED_OPTIONS = intArrayOf(STACKED_BUTTON_PAUSE, STACKED_BUTTON_CANCEL,
+        //Previously internal: This does not compile since Kotlin 1.3.61
+        val STACKED_OPTIONS = intArrayOf(STACKED_BUTTON_PAUSE, STACKED_BUTTON_CANCEL,
                 STACKED_BUTTON_CONTINUE)
 
-        internal val STACKED_TEXT_MESSAGE_IDS = listOf(MessageID.pause_download,
+        //Previously internal: This does not compile since Kotlin 1.3.61
+        val STACKED_TEXT_MESSAGE_IDS = listOf(MessageID.pause_download,
                 MessageID.download_cancel_label, MessageID.download_continue_stacked_label)
     }
 }
