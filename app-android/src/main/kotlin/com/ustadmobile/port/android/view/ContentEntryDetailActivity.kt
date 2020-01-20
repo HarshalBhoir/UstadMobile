@@ -30,6 +30,10 @@ import com.ustadmobile.core.impl.UMAndroidUtil.bundleToMap
 import com.ustadmobile.core.impl.UmAccountManager
 import com.ustadmobile.core.impl.UstadMobileSystemImpl
 import com.ustadmobile.core.util.UMFileUtil
+import com.ustadmobile.core.util.ext.isStatusCompletedSuccessfully
+import com.ustadmobile.core.util.ext.isStatusQueuedOrDownloading
+import com.ustadmobile.core.util.ext.toStatusString
+import com.ustadmobile.core.util.goToContentEntry
 import com.ustadmobile.core.util.mimeTypeToPlayStoreIdMap
 import com.ustadmobile.core.view.ContentEntryDetailView
 import com.ustadmobile.lib.db.entities.ContentEntry
@@ -94,11 +98,11 @@ class ContentEntryDetailActivity : UstadBaseWithContentOptionsActivity(),
         managerAndroidBle = networkManagerBle
         presenter = ContentEntryDetailPresenter(this,
                 bundleToMap(intent.extras), this, true,
-                umAppRepository, UmAppDatabase.getInstance(baseContext),
+                umAppRepository, UmAccountManager.getActiveDatabase(this),
                 networkManagerBle.localAvailabilityManager,
                 networkManagerBle.containerDownloadManager,
                 UmAccountManager.getActiveAccount(viewContext),
-                UstadMobileSystemImpl.instance)
+                UstadMobileSystemImpl.instance, ::goToContentEntry)
         presenter.handleShowEditControls(showControls)
         presenter.onCreate(bundleToMap(Bundle()))
 
@@ -141,7 +145,7 @@ class ContentEntryDetailActivity : UstadBaseWithContentOptionsActivity(),
         downloadProgress!!.setOnStopDownloadListener(this)
 
         findViewById<NestedScrollView>(R.id.nested_scroll).setOnScrollChangeListener { v: NestedScrollView?, scrollX: Int, scrollY: Int, oldScrollX: Int, oldScrollY: Int ->
-            if(showControls){
+            if(showControls && ::editButton.isInitialized && editButton.visibility == View.VISIBLE){
                 if (scrollY > oldScrollY) {
                     editButton.hide()
                 } else {
@@ -225,30 +229,30 @@ class ContentEntryDetailActivity : UstadBaseWithContentOptionsActivity(),
     override fun setDownloadJobItemStatus(downloadJobItem: DownloadJobItem?) {
         if(currentDownloadJobItemStatus != downloadJobItem?.djiStatus) {
             when {
-                //TODO: change this to allow failed etc. probably best done using an extension method in core
-                downloadJobItem == null -> {
-                    entry_download_open_button.text = resources.getText(R.string.download)
-                    entry_download_open_button.visibility = View.VISIBLE
-                    entry_detail_progress.visibility = View.GONE
-                }
-
-                downloadJobItem.djiStatus == JobStatus.COMPLETE -> {
+                downloadJobItem.isStatusCompletedSuccessfully() -> {
                     entry_download_open_button.visibility = View.VISIBLE
                     entry_download_open_button.text = resources.getText(R.string.open)
                     entry_detail_progress.visibility = View.GONE
                 }
 
-                downloadJobItem.djiStatus < JobStatus.COMPLETE_MIN -> {
+                downloadJobItem.isStatusQueuedOrDownloading() -> {
                     entry_download_open_button.visibility = View.GONE
                     entry_detail_progress.visibility = View.VISIBLE
+                }
+
+                else -> {
+                    entry_download_open_button.text = resources.getText(R.string.download)
+                    entry_download_open_button.visibility = View.VISIBLE
+                    entry_detail_progress.visibility = View.GONE
                 }
             }
 
             currentDownloadJobItemStatus = downloadJobItem?.djiStatus ?: 0
         }
 
-        if(downloadJobItem != null && downloadJobItem.djiStatus > JobStatus.WAITING_MIN
-                && downloadJobItem.djiStatus <= JobStatus.COMPLETE_MIN) {
+        if(downloadJobItem != null && downloadJobItem.isStatusQueuedOrDownloading()) {
+            entry_detail_progress.statusText = downloadJobItem.toStatusString(
+                    UstadMobileSystemImpl.instance, this)
             entry_detail_progress.progress = if(downloadJobItem.downloadLength > 0) {
                 (downloadJobItem.downloadedSoFar.toFloat()) / (downloadJobItem.downloadLength.toFloat())
             }else {

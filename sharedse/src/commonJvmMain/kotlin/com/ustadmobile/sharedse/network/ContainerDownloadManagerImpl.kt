@@ -21,6 +21,7 @@ typealias ContainerDownloaderMaker = suspend (downloadJob: DownloadJobItem, down
 
 class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineContext = newSingleThreadContext("UstadDownloadManager"),
                                    private val appDb: UmAppDatabase,
+                                   private val onQueueEmpty: () -> Unit = {},
                                    private val containerDownloaderMaker: ContainerDownloaderMaker): ContainerDownloadManager() {
 
     /**
@@ -142,6 +143,7 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
         fun postUpdate(update: DownloadJob) {
             downloadJob = update
             liveData.sendValue(update)
+            jobsToCommit.add(update)
         }
 
         fun postUpdateInternal(deltaDownloadedSoFar: Long, deltaDownloadLength: Long,
@@ -152,6 +154,7 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
                 downloadJobVal.totalBytesToDownload += deltaDownloadLength
                 downloadJobVal.djStatus = newStatus
                 liveData.sendValue(downloadJobVal)
+                jobsToCommit.add(downloadJobVal)
             }
         }
 
@@ -168,6 +171,8 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
     private val downloadJobMap = HashMap<Int, WeakReference<DownloadJobHolder>>()
 
     private val entriesToCommit : MutableSet<DownloadJobItem> = HashSet()
+
+    private val jobsToCommit: MutableSet<DownloadJob> = HashSet()
 
     override val connectivityLiveData = DoorMutableLiveData<ConnectivityStatus?>(null)
 
@@ -218,7 +223,9 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
 
     override suspend fun commit() = withContext(singleThreadContext){
         appDb.downloadJobItemDao.updateStatusAndProgressList(entriesToCommit.toList())
+        appDb.downloadJobDao.updateStatusAndProgressList(jobsToCommit.toList())
         entriesToCommit.clear()
+        jobsToCommit.clear()
     }
 
     override suspend fun getDownloadJobItemByContentEntryUid(contentEntryUid: Long): DoorLiveData<DownloadJobItem?> {
@@ -341,6 +348,8 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
             GlobalScope.launch(Dispatchers.IO) {
                 containerDownloader.download()
             }
+        }else {
+            onQueueEmpty()
         }
     }
 
@@ -358,6 +367,11 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
                 checkQueue()
             }
         }
+    }
+
+    override suspend fun handleDownloadJobUpdated(downloadJob: DownloadJob) = withContext(singleThreadContext){
+        val holder = loadDownloadJobHolder(downloadJob.djUid)
+        holder.postUpdate(downloadJob)
     }
 
     override suspend fun enqueue(downloadJobId: Int) = withContext(singleThreadContext){
@@ -384,10 +398,21 @@ class ContainerDownloadManagerImpl(private val singleThreadContext: CoroutineCon
 
     override suspend fun setMeteredDataAllowed(downloadJobUid: Int, meteredDataAllowed: Boolean) = withContext(singleThreadContext) {
         appDb.downloadJobDao.setMeteredConnectionAllowedByJobUidSync(downloadJobUid, meteredDataAllowed)
+        val downloadJobHolder = downloadJobMap[downloadJobUid]?.get()
+        val downloadJob = downloadJobHolder?.downloadJob
+        if(downloadJobHolder != null && downloadJob != null) {
+            downloadJob.meteredNetworkAllowed = meteredDataAllowed
+            downloadJobHolder.postUpdate(downloadJob)
+        }
+
         activeDownloads.values.filter { it.downloadJobItem.djiDjUid == downloadJobUid }
                 .forEach {
                     it.runner.meteredDataAllowed = meteredDataAllowed
                 }
+
+
+        if(meteredDataAllowed)
+            checkQueue()
     }
 
     override suspend fun handleConnectivityChanged(status: ConnectivityStatus) = withContext(singleThreadContext){

@@ -3,11 +3,13 @@ package com.ustadmobile.core.networkmanager.downloadmanager
 import com.ustadmobile.core.db.JobStatus
 import com.ustadmobile.door.DoorLiveData
 import com.ustadmobile.lib.db.entities.*
+import kotlin.js.JsName
 
 abstract class ContainerDownloadManager {
 
     abstract suspend fun getDownloadJobItemByJobItemUid(jobItemUid: Int): DoorLiveData<DownloadJobItem?>
 
+    @JsName("getDownloadJobItemByContentEntryUid")
     abstract suspend fun getDownloadJobItemByContentEntryUid(contentEntryUid: Long): DoorLiveData<DownloadJobItem?>
 
     abstract suspend fun getDownloadJob(jobUid: Int): DoorLiveData<DownloadJob?>
@@ -19,6 +21,11 @@ abstract class ContainerDownloadManager {
     abstract suspend fun addItemsToDownloadJob(newItems: List<DownloadJobItemWithParents>)
 
     abstract suspend fun handleDownloadJobItemUpdated(downloadJobItem: DownloadJobItem, autoCommit: Boolean = true)
+
+    /**
+     * This is only for handling changes that have been made externally (e.g. change to save directory)
+     */
+    abstract suspend fun handleDownloadJobUpdated(downloadJob: DownloadJob)
 
     abstract suspend fun enqueue(downloadJobId: Int)
 

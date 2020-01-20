@@ -14,6 +14,7 @@ import com.ustadmobile.core.networkmanager.downloadmanager.ContainerDownloadMana
 import com.ustadmobile.core.util.GoToEntryFn
 import com.ustadmobile.core.util.UMFileUtil
 import com.ustadmobile.core.util.ext.isStatusCompletedSuccessfully
+import com.ustadmobile.core.util.ext.observeWithPresenter
 import com.ustadmobile.core.util.goToContentEntry
 import com.ustadmobile.core.view.*
 import com.ustadmobile.core.view.UstadView.Companion.ARG_CONTENT_ENTRY_UID
@@ -68,7 +69,8 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
         entryUuid = arguments.getValue(ARG_CONTENT_ENTRY_UID)!!.toLong()
         navigation = arguments[ARG_REFERRER]
         entryLiveData = appRepo.contentEntryDao.findLiveContentEntry(entryUuid)
-        entryLiveData.observe(this, ::onEntryChanged)
+
+        entryLiveData.observeWithPresenter(this, ::onEntryChanged)
 
         GlobalScope.launch {
             val result = appRepo.containerDao.getMostRecentContainerForContentEntryAsync(entryUuid)
@@ -81,7 +83,7 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
         if (containerDownloadManager != null) {
             GlobalScope.launch(liveDataObserverDispatcher()) {
                 downloadJobItemLiveData = containerDownloadManager.getDownloadJobItemByContentEntryUid(entryUuid).also {
-                    it.observe(this@ContentEntryDetailPresenter, this@ContentEntryDetailPresenter::onDownloadJobItemChanged)
+                    it.observeWithPresenter(this@ContentEntryDetailPresenter, this@ContentEntryDetailPresenter::onDownloadJobItemChanged)
                 }
             }
         } else {
@@ -91,7 +93,7 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
 
         GlobalScope.launch {
             view.showBaseProgressBar(true)
-            val result = appRepo.contentEntryRelatedEntryJoinDao.findAllTranslationsForContentEntryAsync(entryUuid)
+            val result = appRepo.contentEntryRelatedEntryJoinDao.findAllTranslationsWithContentEntryUid(entryUuid)
             view.runOnUiThread(Runnable {
                 view.setAvailableTranslations(result)
                 view.showBaseProgressBar(false)
@@ -165,7 +167,7 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
             if (loginFirst) {
                 impl.go(LoginView.VIEW_NAME, args, view.viewContext)
             } else {
-                goToContentEntry()
+                goToSelectedContentEntry()
             }
         } else if (isDownloadEnabled) {
             view.runOnUiThread(Runnable {
@@ -174,7 +176,7 @@ class ContentEntryDetailPresenter(context: Any, arguments: Map<String, String?>,
         }
     }
 
-    private fun goToContentEntry() {
+    private fun goToSelectedContentEntry() {
         GlobalScope.launch {
             try {
                 view.showBaseProgressBar(true)
