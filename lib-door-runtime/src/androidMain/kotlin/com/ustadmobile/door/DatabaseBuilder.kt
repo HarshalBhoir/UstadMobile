@@ -11,7 +11,7 @@ actual class DatabaseBuilder<T: DoorDatabase>(private val roomBuilder: RoomDatab
     actual companion object {
         actual fun <T : DoorDatabase> databaseBuilder(context: Any, dbClass: KClass<T>, dbName: String): DatabaseBuilder<T> {
             val applicationContext = (context as Context).applicationContext
-            val builder = DatabaseBuilder(Room.databaseBuilder(applicationContext, dbClass.java, dbName))
+            val builder = DatabaseBuilder(Room.databaseBuilder(applicationContext, dbClass.java, dbName).fallbackToDestructiveMigration())
 
             val callbackClassName = "${dbClass.java.canonicalName}_SyncCallback"
             println("Attempt to load callback $callbackClassName")
