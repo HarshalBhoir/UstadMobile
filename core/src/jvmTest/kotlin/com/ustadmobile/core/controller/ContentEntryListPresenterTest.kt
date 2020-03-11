@@ -43,6 +43,10 @@ class ContentEntryListPresenterTest {
 
     private var mockAccount: UmAccount? = null
 
+    private val EXPECTED_ADD_OPTIONS = ContentEntryListView.EDIT_BUTTONS_ADD_CONTENT or
+            ContentEntryListView.EDIT_BUTTONS_EDITOPTION or
+            ContentEntryListView.EDIT_BUTTONS_NEWFOLDER
+
     private val args = mutableMapOf(
             ARG_FILTER_BUTTONS to "$ARG_LIBRARIES_CONTENT,$ARG_DOWNLOADED_CONTENT,$ARG_RECYCLED_CONTENT")
 
@@ -238,7 +242,7 @@ class ContentEntryListPresenterTest {
         arguments.putAll(args)
         arguments[ARG_CONTENT_ENTRY_UID] = rootEntry.contentEntryUid.toString()
         arguments[ContentEntryListPresenter.ARG_NO_IFRAMES] = "false"
-        arguments[ContentEntryListView.ARG_EDIT_BUTTONS_CONTROL_FLAG] = (ContentEntryListView.EDIT_BUTTONS_ADD_CONTENT or ContentEntryListView.EDIT_BUTTONS_EDITOPTION).toString()
+        arguments[ContentEntryListView.ARG_EDIT_BUTTONS_CONTROL_FLAG] = EXPECTED_ADD_OPTIONS.toString()
 
         val presenter = ContentEntryListPresenter(context, args, mockView, contentEntryDao, contentEntryRepoDao, mockAccount, systemImpl, umAppRepository)
         presenter.onCreate(null)
@@ -256,7 +260,7 @@ class ContentEntryListPresenterTest {
         arguments.putAll(args)
         arguments[ARG_CONTENT_ENTRY_UID] = rootEntry.contentEntryUid.toString()
         arguments[ContentEntryListPresenter.ARG_NO_IFRAMES] = "false"
-        arguments[ContentEntryListView.ARG_EDIT_BUTTONS_CONTROL_FLAG] = (ContentEntryListView.EDIT_BUTTONS_ADD_CONTENT or ContentEntryListView.EDIT_BUTTONS_EDITOPTION).toString()
+        arguments[ContentEntryListView.ARG_EDIT_BUTTONS_CONTROL_FLAG] = EXPECTED_ADD_OPTIONS.toString()
 
         val presenter = ContentEntryListPresenter(context, args, mockView, contentEntryDao, contentEntryRepoDao, mockAccount, systemImpl, umAppRepository)
 
