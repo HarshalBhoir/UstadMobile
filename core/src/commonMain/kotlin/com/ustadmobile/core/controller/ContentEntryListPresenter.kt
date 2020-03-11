@@ -16,6 +16,7 @@ import com.ustadmobile.core.view.ContentEntryListView.Companion.ARG_LIBRARIES_CO
 import com.ustadmobile.core.view.ContentEntryListView.Companion.ARG_RECYCLED_CONTENT
 import com.ustadmobile.core.view.ContentEntryListView.Companion.EDIT_BUTTONS_ADD_CONTENT
 import com.ustadmobile.core.view.ContentEntryListView.Companion.EDIT_BUTTONS_EDITOPTION
+import com.ustadmobile.core.view.ContentEntryListView.Companion.EDIT_BUTTONS_NEWFOLDER
 import com.ustadmobile.core.view.UstadView.Companion.ARG_CONTENT_ENTRY_UID
 import com.ustadmobile.door.DoorLiveData
 import com.ustadmobile.lib.db.entities.*
@@ -208,7 +209,7 @@ class ContentEntryListPresenter(context: Any, arguments: Map<String, String?>,
         args[ARG_CONTENT_ENTRY_UID] = entryUid.toString()
         args.remove(ARG_FILTER_BUTTONS)
         args[ARG_NO_IFRAMES] = noIframe.toString()
-        args[ARG_EDIT_BUTTONS_CONTROL_FLAG] = (EDIT_BUTTONS_ADD_CONTENT or EDIT_BUTTONS_EDITOPTION).toString()
+        args[ARG_EDIT_BUTTONS_CONTROL_FLAG] = (EDIT_BUTTONS_ADD_CONTENT or EDIT_BUTTONS_EDITOPTION or EDIT_BUTTONS_NEWFOLDER).toString()
         val destView = if (entry.leaf) ContentEntryDetailView.VIEW_NAME else ContentEntryListView.VIEW_NAME
         systemImpl.go(destView, args, context)
 
